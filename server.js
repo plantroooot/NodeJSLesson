@@ -6,6 +6,7 @@ const app = express();
 //input데이터 저장 라이브러리
 app.use(express.urlencoded({extended: true}));
 
+//MongoDatabase 연결
 const MongoClient = require('mongodb').MongoClient;
 
 var db;
@@ -21,6 +22,9 @@ MongoClient.connect('mongodb+srv://admin:dksktkd1@tododata.vmoi4xy.mongodb.net/?
         console.log('listening on 8080');
     });
 });
+
+//EJS 연결
+app.set('view engine', 'ejs');
 
 
 //1. GET요청 처리 방법
@@ -53,21 +57,46 @@ app.get('/write', function(req, res){
 
 //2. POST요청 처리 방법
 //어떤 사람이 /add 경로로 POST요청을 하면 ???을 해주세요~
-//1. body-parser필요 - 상단 코드 참고
-//2. form데이터 input태그에 name추가
-//3. req.body.name(req.body -> 요청했던 form에 적힌 데이터 수신 가능)
-//app,post('경로', 콜백함수)
+//1) body-parser필요 - 상단 코드 참고
+//2) form데이터 input태그에 name추가
+//3) req.body.name(req.body -> 요청했던 form에 적힌 데이터 수신 가능)
+//app.post('경로', 콜백함수)
 
-//어떤 사람이 /add라는 경로로 post요청을 하면, 데이터 2개를 보내주는데, 이 때 post라는 이름을 가진 collection 두개 데이터를 저장하기({ 제목 : '', 날짜 : ''})
+//어떤 사람이 /newpost라는 경로로 post요청을 하면, 데이터 2개를 보내주는데, 이 때 post라는 이름을 가진 collection 두개 데이터를 저장하기({ 제목 : '', 날짜 : ''})
 app.post('/newpost', function(req, res){
     res.send('전송완료');    
     console.log(req.body.title);
-    console.log(req.body.date);   
+    console.log(req.body.date);
 
-    db.collection('post').insertOne( {제목 : req.body.title, 날짜 : req.body.date} , function(error, rst){//( {object자료형}, 콜백함수 - error, result)
-        console.log('저장완료');
-    }); 
+    db.collection('counter').findOne({name : '게시물갯수'}, function(error, rst){//1개만 찾기
+        console.log(rst.totalPost); //총 게시물 갯수 구하기       
+        var totalPostNum = rst.totalPost;       
+
+        db.collection('post').insertOne( { _id : totalPostNum + 1, 제목 : req.body.title, 날짜 : req.body.date} , function(error, rst){//( {object자료형}, 콜백함수 - error, result)
+            console.log('저장완료');
+        });
+
+        //이후 counter라는 콜렉션에 있는 totalPost라는 항목도 1증가시켜야함 -> 그래야 총 게시물 갯수 카운트가 올라가서 가져올 수 있음
+    });
 });
+
+//2-1 글번호 달기
+
+
+//2-2. 저장한 페이지 보여주기
+// /list로 GET요청으로 접속하면 실제 DB에 저장된 데이터들로 예쁘게 꾸며진 HTML을 보여줌
+app.get('/list', function(req, res){
+    //DB에 저장된 post라는 collection안의 데이터 다루기 -> db.collection('post')
+
+    // 1)모든 데이터 꺼내기
+    db.collection('post').find().toArray(function(error, rst){
+        console.log(rst);
+        res.render('list.ejs', { posts : rst });
+    });
+
+});
+
+
 
 
 
