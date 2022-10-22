@@ -4,6 +4,7 @@
     <!-- Required meta tags -->
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
     <!-- Bootstrap CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css" integrity="sha384-xOolHFLEh07PJGoPkLv1IbcEPTNtaed2xpHsD9ESMhqIYd0nLMwNLD69Npy4HI+N" crossorigin="anonymous">
     <link rel="stylesheet" href="/public/main.css">
@@ -11,24 +12,30 @@
   </head>
   <body>
     <%- include('nav.html') %>
-
-      <div class="container mt-4">    
-        <h4 class="text-center">상세페이지</h4>
-        <div class="card" style="width: 100%;">
-          <div class="card-body">
-            <h5 class="card-title"><%=data.제목%></h5>
-            <h6 class="card-subtitle mb-2 text-muted"><%=data.날짜%></h6>
-            <p class="card-text">Some quick example text to build on the card title and make up the bulk of the card's content.</p>
-            <a href="../edit/<%=data._id%>" class="card-link">수정하기</a>
+    <h4 class="container mt-4"><strong>로그인</strong></h4>
+    
+    <div class="container mt-3">
+      <form action="/login" method="POST"> <!--action, method -> form 태그 사용시 꼭 있어야함-->
+          <div class="form-group">
+            <label for="id">ID</label>
+            <input type="text" class="form-control" id="id" name="id">
           </div>
-        </div>
-      </div>
-        
+          <div class="form-group">
+            <label for="pw">Password</label>
+            <input type="text" class="form-control" id="pw" name="pw">
+          </div>
+          <button type="submit" class="btn btn-info">로그인</button>
+        </form>
+    </div>
+      
 
+
+    
 
     <!-- Optional JavaScript; choose one of the two! -->
+
     <!-- Option 1: jQuery and Bootstrap Bundle (includes Popper) -->
-    <script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js"></script>    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-Fy6S3B9q64WdZWQUiU+q4/2Lc9npb8tCaSX9FK7E8HnRr0Jz8D6OP9dO5Vg3Q9ct" crossorigin="anonymous"></script>
 
     <!-- Option 2: Separate Popper and Bootstrap JS -->

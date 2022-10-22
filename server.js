@@ -6,11 +6,14 @@ const app = express();
 //input데이터 저장 라이브러리
 app.use(express.urlencoded({extended: true}));
 
+//환경변수 연결
+require('dotenv').config();
+
 //MongoDatabase 연결
 const MongoClient = require('mongodb').MongoClient;
 
 var db;
-MongoClient.connect('mongodb+srv://admin:dksktkd1@tododata.vmoi4xy.mongodb.net/?retryWrites=true&w=majority', function(error, client){ //database접속이 완료되면 실행됨
+MongoClient.connect(process.env.DB_URL, function(error, client){ //database접속이 완료되면 실행됨
     if(error){return console.log(error);}
     db = client.db('todoapp');//todoapp이라는 database(폴더)에 연결
 
@@ -18,10 +21,14 @@ MongoClient.connect('mongodb+srv://admin:dksktkd1@tododata.vmoi4xy.mongodb.net/?
         console.log('저장완료');
     }); */
 
-    app.listen(8080, function(){//포트번호, 띄운 후 실행할 코드(http://localhost:8080/)
+    app.listen(process.env.PORT, function(){//포트번호, 띄운 후 실행할 코드(http://localhost:8080/)
         console.log('listening on 8080');
     });
 });
+
+//method-override - put, delete요청
+const methodOverride = require('method-override');
+app.use(methodOverride('_method'));
 
 //EJS 연결
 app.set('view engine', 'ejs');
@@ -84,7 +91,7 @@ app.post('/newpost', function(req, res){
             //operator - $set -> 값을 바꾸고 싶을때, $inc -> 값을 증가시킬때($ 표시 붙은게 바로 operator 라는 문법)
             db.collection('counter').updateOne({name : '게시물갯수'}, { $inc : {totalPost:1}}, function(error, rst){
                 if(error){ return console.log(error); }
-                res.send('전송완료'); 
+                res.redirect('/list');
             });
         });        
     });
@@ -118,7 +125,7 @@ app.delete('/delete', function(req, res){
     });
 });
 
-
+//4.작성한 글의 상세페이지 만들기
 // get('/서버명/:파라미터') -> /서버명/파라미터로 get요청시 코드 실행
 app.get('/detail/:id', function(req, res){ 
     // /detail/:id 로 접속시 detail.ejs보여줌 -> :문자열 -> req.params.문자열 세트로 다님
@@ -135,6 +142,111 @@ app.get('/detail/:id', function(req, res){
     });
    
 });
+
+//5. PUT요청 처리방법(수정페이지)
+//수정페이지 요청
+app.get('/edit/:id', function(req, res){
+   db.collection('post').findOne({_id : parseInt(req.params.id)}, function(error, rst){
+        res.render('edit.ejs', { data : rst });
+   }); 
+});
+//5-1. 수정기능1 - POST요청 사용
+//id값을 가져오기 위해 id값을 파라미터로 가져옴 -> findOne으로 해당 _id값의 정보를 불러옴 -> updateOne으로 해당 _id값의 제목, 날짜를 input의 값으로 수정($set : {수정내용 - object형으로 입력} ).
+// app.post('/edit/:id', function(req, res){ 
+//         db.collection('post').updateOne({ _id : parseInt(req.params.id) }, { $set : {제목 : req.body.title, 날짜 : req.body.date} }, function(error, rst){
+//             if(error) { return console.log(error); }
+//             res.send('수정완료');
+//       }); 
+// });
+
+//5-2. 수정기능2 - PUT요청 사용(methodoverride 사용)
+//폼에 담긴 제목, 날짜 데이터를 가지고 db.collection에다가 업데이트함.
+app.put('/edit', function(req, res){
+    db.collection('post').updateOne({ _id : parseInt(req.body.id) }, { $set : { 제목 : req.body.title, 날짜 : req.body.date } }, function(error, rst){
+        console.log('수정완료');
+        res.redirect('/list');
+    });
+});
+
+
+//6. 로그인 기능
+const passport = require('passport');
+const LocalStrategy = require('passport-local').Strategy;
+const session = require('express-session');
+
+app.use(session({secret : 'dksktkd1', resave : true, saveUninitialized : false}));
+app.use(passport.initialize());
+app.use(passport.session());
+//app.use(미들웨어) - 요청 - 응답중간에 실행되는 코드
+
+app.get('/login', function(req, res){
+    res.render('login.ejs');
+});
+
+app.post('/login', passport.authenticate('local', {
+    failureRedirect : '/fail'
+}), function(req, res){ //id, pw검사 -> passport.authenticate()
+    res.redirect('/');
+});
+
+app.get('/mypage', loginCheck, function(req, res){
+    console.log(req.user); //사용자의 정보
+    res.render('mypage.ejs', {data : req.user});
+});
+
+function loginCheck(req, res, next){
+    if(req.user){ //req.user가 있으면 통과
+        next();
+        //console.log(req.user);
+    }else{
+        res.send('로그인 해주세요.')
+    }
+}
+
+passport.use(new LocalStrategy({
+    usernameField: 'id', //form의 name이 id인 input
+    passwordField: 'pw', //form의 name이 pw인 input
+    session: true, //세션정보 저장여부
+    passReqToCallback: false, //아이디 / 비밀번호 말고도 다른정보 검증시 true, 이후 콜백함수 맨 앞에 req추가.
+  }, function (user_id, user_pw, done) {
+    //console.log(입력한아이디, 입력한비번);
+    db.collection('login').findOne({ id: user_id }, function (error, rst) {
+      if (error) return done(error)
+
+      //비밀번호 보안문제 해결해보기 -> 회원가입시 비번을 암호화하여 저장, 로그인시 비밀번호를 암호화하여 일치여부 판단
+      //done(param1, param2, param3) - param1 : 서버에러, param2 : id,pw가 다 맞을때 결과를 반환함, param3 : error메세지
+      if (!rst) return done(null, false, { message: '존재하지않는 아이디요' });
+      if (user_pw == rst.pw) {
+        return done(null, rst);
+      } else {
+        return done(null, false, { message: '비번틀렸어요' });
+      }
+    })
+  }));
+
+  passport.serializeUser(function(user, done){
+    done(null, user.id); // id를 이용하여 세션을 저장시키는 코드(로그인 성공시 실행)
+  });
+
+  passport.deserializeUser(function(user_id, done){
+    //DB에서 위에 있던 user.id로 유저를 찾은 뒤에 유저 정보를 null옆에 넣음
+    db.collection('login').findOne({id : user_id}, function(error, rst){
+        done(null, rst); //마이페이지 접속시 사용
+    })
+    
+  });
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
