@@ -7,45 +7,19 @@
 
     <!-- Bootstrap CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css" integrity="sha384-xOolHFLEh07PJGoPkLv1IbcEPTNtaed2xpHsD9ESMhqIYd0nLMwNLD69Npy4HI+N" crossorigin="anonymous">
+    <link rel="stylesheet" href="/public/main.css">
     <title>Hello, world!</title>
   </head>
   <body>
-    <nav class="navbar navbar-expand-lg navbar-light bg-light">
-        <a class="navbar-brand" href="#">Todo App</a>
-        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-          <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarNav">
-          <ul class="navbar-nav">
-            <li class="nav-item">
-              <a class="nav-link" href="/">Home</a>
-            </li>
-            <li class="nav-item active">
-              <a class="nav-link" href="/write">Write <span class="sr-only">(current)</span></a>
-            </li>            
-            <li class="nav-item">
-              <a class="nav-link" href="/list">List <span class="sr-only">(current)</span></a>
-            </li>
-          </ul>
-        </div>
-      </nav>
+      <%- include('nav.html') %>      
 
-      <h4 class="container mt-4"><strong>글 작성페이지</strong></h4>
-      
-      <div class="container mt-3">
-        <form action="/newpost" method="POST"> <!--action, method -> form 태그 사용시 꼭 있어야함-->
-            <div class="form-group">
-              <label for="todo">할 일</label>
-              <input type="text" class="form-control" id="title" name="title">
-            </div>
-            <div class="form-group">
-              <label for="duedate">Due date</label>
-              <input type="text" class="form-control" id="date" name="date">
-            </div>
-            <button type="submit" class="btn btn-info">Submit</button>
-          </form>
+      <div class="jumbotron">
+        <h1 class="display-4">Hello, world!</h1>
+        <p class="lead">This is a simple hero unit, a simple jumbotron-style component for calling extra attention to featured content or information.</p>
+        <hr class="my-4">
+        <p>It uses utility classes for typography and spacing to space content out within the larger container.</p>
+        <a class="btn btn-primary btn-lg" href="#" role="button">Learn more</a>
       </div>
-      
 
 
     

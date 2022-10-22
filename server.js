@@ -26,6 +26,9 @@ MongoClient.connect('mongodb+srv://admin:dksktkd1@tododata.vmoi4xy.mongodb.net/?
 //EJS 연결
 app.set('view engine', 'ejs');
 
+//Pubilc폴더 연결
+app.use('/public', express.static('public'));
+
 
 //1. GET요청 처리 방법
 //누군가가 /URL로 방문하면 해당 url 관련 안내문 띄우기
@@ -48,11 +51,13 @@ app.get('/beauty', function(req, res){
 
 //1-1 GET요청시 HTML파일 보내기 -> 응답인자.sendFile(__dirname + '파일명.html')
 app.get('/', function(req, res){
-    res.sendFile(__dirname + '/index.html');
+    //res.sendFile(__dirname + '/index.html');
+    res.render('index.ejs')
 });
 
 app.get('/write', function(req, res){
-    res.sendFile(__dirname + '/write.html');
+    //res.sendFile(__dirname + '/write.html');
+    res.render('write.ejs')
 });
 
 //2. POST요청 처리 방법
@@ -90,7 +95,7 @@ app.post('/newpost', function(req, res){
 app.get('/list', function(req, res){
     //DB에 저장된 post라는 collection안의 데이터 다루기 -> db.collection('post')
 
-    // 1)모든 데이터 꺼내기
+    // 1)모든 데이터 꺼내기 -> res.render('파일명', { 데이터이름 : 데이터내용 })
     db.collection('post').find().toArray(function(error, rst){
         console.log(rst);
         res.render('list.ejs', { posts : rst });
@@ -114,6 +119,22 @@ app.delete('/delete', function(req, res){
 });
 
 
+// get('/서버명/:파라미터') -> /서버명/파라미터로 get요청시 코드 실행
+app.get('/detail/:id', function(req, res){ 
+    // /detail/:id 로 접속시 detail.ejs보여줌 -> :문자열 -> req.params.문자열 세트로 다님
+    db.collection('post').findOne({_id : parseInt(req.params.id)}, function(error, rst){ //그냥 id로 하면 문자열로 받아옴.
+        
+        //if(error){ return console.log('없음') }
+        if(rst == null || rst == undefined){ //게시글이 없을경우
+            res.send('전송실패');
+        }else{
+            res.render('detail.ejs', { data : rst });
+        }
+        console.log(rst);
+        
+    });
+   
+});
 
 
 
