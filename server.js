@@ -36,6 +36,9 @@ app.set('view engine', 'ejs');
 //Pubilc폴더 연결
 app.use('/public', express.static('public'));
 
+//해시함수 사용
+var crypto = require("crypto");
+
 
 //1. GET요청 처리 방법
 //누군가가 /URL로 방문하면 해당 url 관련 안내문 띄우기
@@ -205,18 +208,24 @@ function loginCheck(req, res, next){
 
 passport.use(new LocalStrategy({
     usernameField: 'id', //form의 name이 id인 input
-    passwordField: 'pw', //form의 name이 pw인 input
+    passwordField: 'pwd', //form의 name이 pw인 input
     session: true, //세션정보 저장여부
     passReqToCallback: false, //아이디 / 비밀번호 말고도 다른정보 검증시 true, 이후 콜백함수 맨 앞에 req추가.
   }, function (user_id, user_pw, done) {
-    //console.log(입력한아이디, 입력한비번);
-    db.collection('login').findOne({ id: user_id }, function (error, rst) {
-      if (error) return done(error)
+    console.log(user_id, user_pw);
+
+    var shasum = crypto.createHash("sha512");
+    shasum.update(user_pw);
+    var output = shasum.digest("hex");
+    //console.log("hash value: ", output);
+    db.collection('member').findOne({ Id: user_id, Password : output }, function (error, rst) {
+      if (error) return done(error);
 
       //비밀번호 보안문제 해결해보기 -> 회원가입시 비번을 암호화하여 저장, 로그인시 비밀번호를 암호화하여 일치여부 판단
       //done(param1, param2, param3) - param1 : 서버에러, param2 : id,pw가 다 맞을때 결과를 반환함, param3 : error메세지
+      console.log(rst.Password, output);
       if (!rst) return done(null, false, { message: '존재하지않는 아이디요' });
-      if (user_pw == rst.pw) {
+      if (output == rst.Password) {
         return done(null, rst);
       } else {
         return done(null, false, { message: '비번틀렸어요' });
@@ -225,16 +234,90 @@ passport.use(new LocalStrategy({
   }));
 
   passport.serializeUser(function(user, done){
-    done(null, user.id); // id를 이용하여 세션을 저장시키는 코드(로그인 성공시 실행)
+    done(null, user.Id); // id를 이용하여 세션을 저장시키는 코드(로그인 성공시 실행)
   });
 
   passport.deserializeUser(function(user_id, done){
     //DB에서 위에 있던 user.id로 유저를 찾은 뒤에 유저 정보를 null옆에 넣음
-    db.collection('login').findOne({id : user_id}, function(error, rst){
+    db.collection('member').findOne({Id : user_id}, function(error, rst){
         done(null, rst); //마이페이지 접속시 사용
     })
     
   });
+  
+  //7. 회원가입 기능
+  //비밀번호 암호화
+  // createHash( ) : 해시값 생성. 인자로 사용할 알고리즘을 넣어줍니다.
+  // sha256, sha512와 같은 것이 있는데, 둘 중 sha512가 더 길고 안전합니다.
+  // update( ) : 인자로 암호화할 Key값을 넣어준다.
+  // digest( ) : 어떤 인코딩 방식으로 암호화된 문자열을 표시할지를 넣어줍니다.
+  // base64, hex, latin1 등의 방식들이 있습니다.
+  // 한 번에 쓰는법
+  //var output = crypto.createHash('sha512').update(id).shasum.digest('hex');
+  app.get('/join', function(req,res){
+    res.render('join.ejs');
+  });
+  
+  app.post('/join', function(req, res){
+    //console.log(req.body.pwd);
+    var output = '';
+    var hashpwd = req.body.pwd;
+    var shasum = crypto.createHash("sha512");
+    shasum.update(hashpwd);
+    output = shasum.digest("hex");
+    console.log("hash value: ", output);
+    //res.send('테스트중')
+    db.collection('member').insertOne({Id : req.body.id, Password : output}, function(error, rst){
+        if(error) { console.log(error); }
+        res.redirect('/');
+    });
+  });
+
+//8. 검색기능
+
+//8-1 POST요청 방법
+// app.post('/search', function(req, res){
+//     //console.log(req.body.sval);
+//     db.collection('post').find({ 제목 : req.body.sval }).toArray(function(error, rst){
+//         if(error) { console.log(error); }
+//         if(rst.length == 0){
+//             res.send('검색실패');
+//         }else{            
+//             console.log(rst);
+//             res.render('search.ejs', {posts : rst});
+//         }
+//     });
+//     //res.render('search.ejs');    
+// });
+
+//8-2 GET요청 방법
+//query string -> get요청으로 서버에 몰래 정보를 전달함 => url/?데이터이름=데이터값
+app.get('/search', function(req, res){
+    console.log(req.query.value); //req.query -> query string꺼내는법
+    
+    db.collection('post').find({ 제목 : req.query.value }).toArray(function(error, rst){
+        //req.query.value -> 정확히 그 문자만 찾음
+        console.log(rst.length);
+        if(rst.length == 0){
+            res.send('검색 결과가 없습니다.')
+        }else{
+            res.render('search.ejs', { posts : rst });
+        }        
+    });
+
+    //검색한 값이 포함된 모든 검색결과를 찾을 경우
+    // - 정규식 이용 /검색어/ -> 그냥 find()로 다 찾는건 오래걸림
+    // -> indexing이용(일일이 찾지 않고 계속 범위를 좁혀가며 검색) 다만 미리 순서대로 정렬이 되어있어야 함.**
+});
+
+ 
+ 
+
+  
+  
+
+
+
 
 
 
