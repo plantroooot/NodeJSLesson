@@ -37,7 +37,7 @@
               <h4>할 일 제목 : <%= posts[i].제목 %></h4>
               <p>할 일  마감날짜 : <%= posts[i].날짜 %> </p>
             </a>
-            <button class="btn btn-danger delete" data-id="<%= posts[i]._id%>">삭제</button>
+            <button class="btn btn-danger delete" data-id="<%= posts[i]._id%>" data-obj="<%= posts[i].작성자%>">삭제</button>
             
           </li>
           <%}%>
@@ -51,20 +51,27 @@
         //.delete를 클릭하면 ajax작동
         $('.delete').click(function(e){
           var postNum = e.target.dataset.id;
+          var userCheck = e.target.dataset.obj;
           var target = $(this);
-
+          //console.log(postNum);
+          
           $.ajax({
             method : 'DELETE', //요청방식
             url : '/delete', //요청할 url
-            data : {_id : postNum} //요청할 data - req.body
+            data : {_id : postNum, 작성자 : userCheck} //요청할 data - req.body
           }).done(function(rst){ //ajax성공시 실행
             //성공여부를 알려야함
             //페이지 새로고침 or 삭제버튼을 누른 요소를 제거 / 안보이게 처리
-            console.log('성공했습니다.');
-            target.parent('li').remove();
+            //console.log(rst.test);
+            if(rst.deleteKey != userCheck){
+              alert('본인 글만 삭제 가능합니다.');
+            }else{
+              target.parent('li').remove();
+            }            
           }).fail(function(xhr, textStatus, errorThrown){
             console.log(xhr, textStatus, errorThrown);
           });
+
         });
 
       </script>
@@ -76,6 +83,15 @@
           window.location.replace('/search?value=' + sval); //현재 url에 추가하는 함수, ?이름=값
 
         });
+
+        // query string 만드는법 1        
+        // var params = {key1 : 'value', key2 : 'value'};
+        // var str = $.param(params);
+        // console.log(str);
+
+        // query string 만드는법 2
+        // $(form태그).serialize(); -> input을 전부 쿼리문으로 바꿔줌
+
       </script>
 
 

@@ -70,7 +70,7 @@ app.get('/write', function(req, res){
     res.render('write.ejs')
 });
 
-//2. POST요청 처리 방법
+//2. POST요청 처리 방법 - 실제 동작코드는 검색 : 글 등록 방법 옮겨옴
 //어떤 사람이 /add 경로로 POST요청을 하면 ???을 해주세요~
 //1) body-parser필요 - 상단 코드 참고
 //2) form데이터 input태그에 name추가
@@ -78,15 +78,19 @@ app.get('/write', function(req, res){
 //app.post('경로', 콜백함수)
 
 //어떤 사람이 /newpost라는 경로로 post요청을 하면, 데이터 2개를 보내주는데, 이 때 post라는 이름을 가진 collection 두개 데이터를 저장하기({ 제목 : '', 날짜 : ''})
+/*
 app.post('/newpost', function(req, res){       
     //console.log(req.body.title);
     //console.log(req.body.date);
     db.collection('counter').findOne({name : '게시물갯수'}, function(error, rst){//1개만 찾기
         //총 게시물 갯수 구하기
         console.log(rst.totalPost);       
-        var totalPostNum = rst.totalPost;       
+        var totalPostNum = rst.totalPost; 
+        
+        //작성자 - req.user._id
+        var postInfo = { _id : totalPostNum + 1, 작성자 : req.user.id, 제목 : req.body.title, 날짜 : req.body.date }
 
-        db.collection('post').insertOne( { _id : totalPostNum + 1, 제목 : req.body.title, 날짜 : req.body.date} , function(error, rst){//( {object자료형}, 콜백함수 - error, result)
+        db.collection('post').insertOne( {postInfo} , function(error, rst){//( {object자료형}, 콜백함수 - error, result)
             console.log('저장완료');
 
             //이후 DB에 있는 counter라는 콜렉션에 있는 totalPost라는 항목도 1증가시켜야함. 그래야 총 게시물 갯수 카운트가 올라가서 다음에 새로운 아이디를 가져올 수 있음
@@ -99,6 +103,7 @@ app.post('/newpost', function(req, res){
         });        
     });
 });
+*/
 
 //2-1. 저장한 페이지 보여주기
 // /list로 GET요청으로 접속하면 실제 DB에 저장된 데이터들로 예쁘게 꾸며진 HTML을 보여줌
@@ -112,21 +117,25 @@ app.get('/list', function(req, res){
     });
 });
 
-//3. DELETE요청 처리방법
+//3. DELETE요청 처리방법 - 로그인시 삭제가능하므로 로그인 기능 밑으로 이동
 //3.1) method-override 라이브러리 이용
 //3.2) Javascript AJAX이용 - 이걸로 사용!
+/*
 app.delete('/delete', function(req, res){
     console.log(req.body);
     req.body._id = parseInt(req.body._id); //parseInt() - 정수로 변환
 
+    var deleteTarget = { _id : req.body._id, 작성자 : req.user._id} //작성자 타겟팅
+
     //req.body에 담겨온 게시물번호를 가진 글을 DB에서 찾아서 삭제해주세요.
     //deleteOne({어떤 항목을 삭제할지 정함} 콜백함수)
-    db.collection('post').deleteOne(req.body, function(error, rst){
+    db.collection('post').deleteOne(deleteTarget, function(error, rst){
         console.log('삭제완료');
         res.status(200).send({ message : '성공했습니다'});
         //요청성공시 보내는 요청코드 - 200, 실패시 400.
     });
 });
+*/
 
 //4.작성한 글의 상세페이지 만들기
 // get('/서버명/:파라미터') -> /서버명/파라미터로 get요청시 코드 실행
@@ -244,6 +253,49 @@ passport.use(new LocalStrategy({
     })
     
   });
+
+  //글 등록방법 옮겨옴
+  app.post('/newpost', function(req, res){       
+    //console.log(req.body.title);
+    //console.log(req.body.date);
+    db.collection('counter').findOne({name : '게시물갯수'}, function(error, rst){//1개만 찾기
+        //총 게시물 갯수 구하기
+        console.log(rst.totalPost);       
+        var totalPostNum = rst.totalPost; 
+        
+        //작성자 - req.user._id
+        var postInfo = { _id : totalPostNum + 1, 작성자 : req.user._id, 제목 : req.body.title, 날짜 : req.body.date }
+
+        db.collection('post').insertOne( postInfo , function(error, rst){//( {object자료형}, 콜백함수 - error, result)
+            console.log('저장완료');
+
+            //이후 DB에 있는 counter라는 콜렉션에 있는 totalPost라는 항목도 1증가시켜야함. 그래야 총 게시물 갯수 카운트가 올라가서 다음에 새로운 아이디를 가져올 수 있음
+            // - updateOne({어떤 데이터를 수정할지}, { operator : {수정값}}) -> 지정한 1개의 데이터 수정가능
+            //operator - $set -> 값을 바꾸고 싶을때, $inc -> 값을 증가시킬때($ 표시 붙은게 바로 operator 라는 문법)
+            db.collection('counter').updateOne({name : '게시물갯수'}, { $inc : {totalPost:1}}, function(error, rst){
+                if(error){ return console.log(error); }
+                res.redirect('/list');
+            });
+        });        
+    });
+});
+app.delete('/delete', function(req, res){
+    console.log(req.body);
+    req.body._id = parseInt(req.body._id); //parseInt() - 정수로 변환
+
+    var deleteTarget = { _id : req.body._id, 작성자 : req.user._id} //작성자 타겟팅
+
+    //req.body에 담겨온 게시물번호를 가진 글을 DB에서 찾아서 삭제해주세요.
+    //deleteOne({어떤 항목을 삭제할지 정함} 콜백함수)
+    db.collection('post').deleteOne(deleteTarget, function(error, rst){        
+        console.log('삭제완료');
+        if(error) { res.send('삭제실패'); }
+        res.status(200).send({ message : '성공했습니다', deleteKey : req.user._id});
+        //요청성공시 보내는 요청코드 - 200, 실패시 400.
+    });
+});
+
+
   
   //7. 회원가입 기능
   //비밀번호 암호화
@@ -260,16 +312,27 @@ passport.use(new LocalStrategy({
   
   app.post('/join', function(req, res){
     //console.log(req.body.pwd);
-    var output = '';
-    var hashpwd = req.body.pwd;
-    var shasum = crypto.createHash("sha512");
-    shasum.update(hashpwd);
-    output = shasum.digest("hex");
-    console.log("hash value: ", output);
-    //res.send('테스트중')
-    db.collection('member').insertOne({Id : req.body.id, Password : output}, function(error, rst){
-        if(error) { console.log(error); }
-        res.redirect('/');
+
+    db.collection('member').findOne({Id : req.body.id}, function(error, rst){
+        console.log(rst);
+        if(rst != null){
+            res.send('이미 있는 아이디입니다.');
+        }else{
+            //비밀번호 암호화
+            var output = '';
+            var hashpwd = req.body.pwd;
+            var shasum = crypto.createHash("sha512");
+            shasum.update(hashpwd);
+            output = shasum.digest("hex");
+            //console.log("hash value: ", output);
+            //res.send('테스트중')
+
+            //회원가입
+            db.collection('member').insertOne({Id : req.body.id, Password : output}, function(error, rst){
+                if(error) { console.log(error); }
+                res.redirect('/');
+            });            
+        }
     });
   });
 
@@ -292,12 +355,50 @@ passport.use(new LocalStrategy({
 
 //8-2 GET요청 방법
 //query string -> get요청으로 서버에 몰래 정보를 전달함 => url/?데이터이름=데이터값
+
+/*
+
+8-2-1 해당검색어와 정확히 일치하는것만 찾을 경우
+-> find({제목 : req.query.value})
+
+8-2-2 검색한 값이 포함된 모든 검색결과를 찾을 경우
+1) 정규식 이용 /검색어/ -> 그냥 find()로 다 찾는건 오래걸림
+2) indexing이용(일일이 찾지 않고 계속 범위를 좁혀가며 검색) 다만 미리 순서대로 정렬이 되어있어야 함.**
+2-1)mongodb text index - $text : {$search : req.query.value} -> 만들어놓은 인덱스에 의해 검색
+or검색 - 검색어 2개여도 해당 검색어가 포함된 모든 문자에 대한 검색.
+-검색 - 해당 검색어 제외
+"검색어"와 정확히 일치하는것만 검색,
+text index의 단점 : 띄어쓰기 기준으로 단어를 저장하기때문에 한국어, 일본어, 중국어에는 좋지않음
+
+해결책 1 -> 검색할 문서의 양을 제한두기(날짜 순서, 글 랭킹, 점수 등등)
+해결책 2 -> text index 만들 때 다르게 만들기(mongodb설치 및 알고리즘 변경)
+해결책 3 -> Search index 사용, aggregate(변수명); 이후 코드 참조
+
+*/
 app.get('/search', function(req, res){
     console.log(req.query.value); //req.query -> query string꺼내는법
-    
-    db.collection('post').find({ 제목 : req.query.value }).toArray(function(error, rst){
-        //req.query.value -> 정확히 그 문자만 찾음
-        console.log(rst.length);
+
+    var scategory = [//aggregate() - 변수
+        {
+            $search: {
+                index: 'titleSearch',
+                text: {
+                    query: req.query.value,
+                    path: '제목' //어떤 항목에서 검사 할것인지? - 제목 / 날짜 둘다 찾고 싶으면 ['제목', '날짜']
+                }
+            }
+        },
+        { $sort : { _id : 1 } } //글 번호순으로 정렬
+        /*
+            {$limit : number} -> 상위 number만큼 가져옴(결과 개수 제한)
+            {$project : { 제목: 1, _id: 0, score: { $meta: "searchScore" } }} 1-포함, 2-불포함
+            - 검색결과에서 필터링하기
+        */
+    ];
+
+    db.collection('post').aggregate(scategory).toArray(function(error, rst){
+        //find(찾고자하는 카테고리 : req.query.value -> 정확히 그 문자만 찾음
+        console.log(rst);
         if(rst.length == 0){
             res.send('검색 결과가 없습니다.')
         }else{
@@ -305,9 +406,7 @@ app.get('/search', function(req, res){
         }        
     });
 
-    //검색한 값이 포함된 모든 검색결과를 찾을 경우
-    // - 정규식 이용 /검색어/ -> 그냥 find()로 다 찾는건 오래걸림
-    // -> indexing이용(일일이 찾지 않고 계속 범위를 좁혀가며 검색) 다만 미리 순서대로 정렬이 되어있어야 함.**
+    
 });
 
  
