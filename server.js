@@ -409,8 +409,13 @@ app.get('/search', function(req, res){
     
 });
 
- 
- 
+//9. Router관리
+//shop.js 참조
+app.use('/shop', require('./routes/shop.js')); //shop.js파일을 여기에 첨부함.
+//-> /shop경로로 요청했을때  이런 미들웨어(라우팅)를 적용해주세요.\\
+
+app.use('/board/sub', require('./routes/board.js'));
+
 
   
   
