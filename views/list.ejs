@@ -37,12 +37,35 @@
               <h4>할 일 제목 : <%= posts[i].제목 %></h4>
               <p>할 일  마감날짜 : <%= posts[i].날짜 %> </p>
             </a>
-            <button class="btn btn-danger delete" data-id="<%= posts[i]._id%>" data-obj="<%= posts[i].작성자%>">삭제</button>
-            
+            <div>
+              <button class="btn btn-danger delete" data-id="<%= posts[i]._id%>" data-obj="<%= posts[i].작성자%>">삭제</button>
+              <!-- <a class="btn btn-primary" id="chatBtn" href="/chatroom">채팅방 개설</a> -->
+              <button class="btn btn-secondary chat" data-id="<%= posts[i].작성자%>">채팅</button> <!-- ajax로 처리 -->
+            </div>            
           </li>
           <%}%>
         </ul>
       </div>
+      <!-- 채팅방 개설 누르면 팝업 오픈, 필요한 내용(member - 채팅당한 유저 id 채팅 건 유저 id, date, 채팅방이름) 적어서 post요청 보내보기 -->
+      <!-- <div class="popup">
+        <div class="frm_wrap">            
+          <form action="/frmchat" method="POST">
+            <div class="form-group">
+              <label for="">채팅방 이름</label>
+              <input type="text" class="form-control" id="title" name="title">
+            </div>
+            <div class="form-group">
+              <label for="user1">채팅 방장</label>
+              <input type="text" class="form-control" id="user1" name="user1">
+            </div>
+            <div class="form-group">
+              <label for="user2">채팅 하고싶은 사람</label>
+              <input type="text" class="form-control" id="user2" name="user2">
+            </div>
+            <button type="submit" class="btn btn-info">채팅 시작하기</button>
+          </form>
+        </div>
+      </div> -->
       
       <!-- AJAX - Jquery이용 -->
       <script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js"></script>
@@ -73,6 +96,18 @@
           });
 
         });
+
+
+        $('.chat').click(function(e){
+          var __id = e.target.dataset.id;
+          $.post('/chatroom', {targetUser : __id})
+          .then(()=>{
+            console.log('성공')
+          });
+        });
+
+
+        
 
       </script>
 

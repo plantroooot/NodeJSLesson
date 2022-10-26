@@ -26,6 +26,8 @@ MongoClient.connect(process.env.DB_URL, function(error, client){ //database접�
     });
 });
 
+const { ObjectId } = require('mongodb');
+
 //method-override - put, delete요청
 const methodOverride = require('method-override');
 app.use(methodOverride('_method'));
@@ -416,9 +418,87 @@ app.use('/shop', require('./routes/shop.js')); //shop.js파일을 여기에 첨�
 
 app.use('/board/sub', require('./routes/board.js'));
 
+//10. 이미지 업로드 방법
+let multer = require('multer');
+var storage = multer.diskStorage({
+    destination : function(req, file, cb){
+        cb(null, './public/image'); //이미지 저장 경로
+    },
+    filename : function(req, file, cb){
+        cb(null, file.originalname); 
+        //file명 설정 - 기존 이미지의 기존 파일명 사용
+        //뒤에 + 로 원하는 파일명 추가 가능(날짜 등)
+    }/*,
+    filefilter : function(req, file, cb){
+        //파일 거르기 - 이미지 파일만 업로드하게..
 
-  
-  
+    },
+    limits : function(req, file, passReqToCallback){
+
+    }*/
+}); //이미지를 저장하는 장소 지정, memoryStorage-> ram에다 저장
+
+var upload = multer({storage : storage});
+
+//10. 이미지 업로드
+app.get('/upload', function(req, res){
+    res.render('upload.ejs');
+});
+//이미지 업로드시 저장 - 일반 하드에 저장하는게 싸고 편함
+
+app.post('/upload', upload.single('profile'), function(req, res){
+    //single('input[type="file"]의 name속성') - 1개업로드
+    //array('input[type="file"]의 name속성', 업로드할 파일 갯수) - 여러개 업로드
+    res.send('업로드 완료');
+});
+
+app.get('/image/:imageName', function(req, res){
+    res.sendFile(__dirname + '/public/image/' + req.params.imageName);
+});
+
+//MongoDB Native vs Mongoose -> 벨리데이션이 쉬워짐(검증작업)
+//보안문제? - 악성유저가 되어 테스트해보기
+
+//상품등록 , 상품 리스트, 주문기능(게시물 발행), 주문관리, 카드결제기능 붙이기(pg사) 쇼핑몰 만들어보기
+
+//11.채팅기능 만들기
+//11-1 댓글기능 만들기
+//첫번째 - 댓글 메세지에 부모게시물의 정보까지 입력해놓는것
+app.post('/chatroom', loginCheck, function(req, res){
+
+    var chatInfo = {
+        title : '채팅방123',
+        member : [ObjectId(req.body.targetUser), req.user._id],
+        date : new Date()
+    }
+    
+    db.collection('chatroom').insertOne(chatInfo).then(function(rst){
+        res.send('생성 완료');
+    });
+});
+
+app.get('/chat', loginCheck, function(req, res){
+    //console.log(req.user.Id);    
+    db.collection('chatroom').find({ member : req.user._id }).toArray(function(error, rst){
+        //res.send(rst);
+        res.render('chat.ejs', { data : rst });
+    });
+    
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
