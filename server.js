@@ -9,6 +9,11 @@ app.use(express.urlencoded({extended: true}));
 //환경변수 연결
 require('dotenv').config();
 
+//socket.io 세팅
+const http = require('http').createServer(app);
+const {Server} = require('socket.io');
+const io = new Server(http);
+
 //MongoDatabase 연결
 const MongoClient = require('mongodb').MongoClient;
 
@@ -21,8 +26,8 @@ MongoClient.connect(process.env.DB_URL, function(error, client){ //database접�
         console.log('저장완료');
     }); */
 
-    app.listen(process.env.PORT, function(){//포트번호, 띄운 후 실행할 코드(http://localhost:8080/)
-        console.log('listening on 8080');
+    http.listen(process.env.PORT, function(){//포트번호, 띄운 후 실행할 코드(http://localhost:8080/)
+        console.log('listening on 8080'); //socket.io 사용시 http로 변경
     });
 });
 
@@ -35,11 +40,40 @@ app.use(methodOverride('_method'));
 //EJS 연결
 app.set('view engine', 'ejs');
 
+
 //Pubilc폴더 연결
 app.use('/public', express.static('public'));
 
 //해시함수 사용
 var crypto = require("crypto");
+
+var cors = require('cors')
+app.use(cors());
+
+//socket.io 연결
+app.get('/socket', function(req, res){
+    res.render('socket.ejs');
+});
+
+io.on('connection', function(socket){ //유저 접속시 실행되는 코드
+    console.log(socket.id);
+
+    socket.on('room1-send', function(data){
+        io.to('room1').emit('broadcast', data)
+    });
+
+    //socket.join('room1'); //채팅방 생성
+    socket.on('joinroom', function(data){//누가 'user-send'이름으로 메세지보내면 내부코드 실행, data - 유저가 보낸 메세지
+        socket.join('room1');
+    });    
+
+    //서버가 수신하려면 socket.on('작명', 콜백함수)
+    socket.on('user-send', function(data){//누가 'user-send'이름으로 메세지보내면 내부코드 실행, data - 유저가 보낸 메세지
+        //onsole.log(data);
+        io.emit('broadcast', data); // io.emit('broadcast', '반가워'); 서버 -> 유저 메세지 전송(모든 유저에게 메세지 보내줌)
+        //to(socket.io) -> 단일 유저에게 보냄.
+    });
+});
 
 
 //1. GET요청 처리 방법
@@ -61,10 +95,98 @@ app.get('/beauty', function(req, res){
     3. window10 보안문제 -> powershell(관리자모드) / executionpolicy 입력 / set-executionpolity unrestricted / y
 */
 
+//로그인체크
+//6. 로그인 기능
+const passport = require('passport');
+const LocalStrategy = require('passport-local').Strategy;
+const session = require('express-session');
+
+app.use(session({secret : 'dksktkd1', resave : true, saveUninitialized : false}));
+app.use(passport.initialize());
+app.use(passport.session());
+//app.use(미들웨어) - 요청 - 응답중간에 실행되는 코드
+
+app.use(function(req, res, next){
+    res.locals.isAuthenticated = req.isAuthenticated(); // passport에서 제공하는 함수로, 현재 로그인이 되어있는지 아닌지를true,false로 return함
+    res.locals.currentUser = req.user;
+    next();
+    //res.locals에 위 두가지를 담는데, res.locals에 담겨진 변수는 ejs에서 바로 사용가능합니다.
+    // res.locals.isAuthenticated는 ejs에서 user가 로그인이 되어 있는지 아닌지를 확인하는데 사용되고, res.locals.currentUser는 로그인된 user의 정보를 불러오는데 사용됩니다.
+});
+
+
+app.get('/login', function(req, res){
+    res.render('login.ejs');
+});
+
+app.post('/login', passport.authenticate('local', {
+    failureRedirect : '/fail'
+}), function(req, res){ //id, pw검사 -> passport.authenticate()
+    res.redirect('/');
+});
+
+app.get('/mypage', loginCheck, function(req, res){
+    //console.log(req.user);
+    res.render('mypage.ejs', {data : req.user});
+});
+
+function loginCheck(req, res, next){
+    if(req.user){ //req.user가 있으면 통과
+        next();
+        //console.log(req.user);
+    }else{
+        res.send('<script>alert("로그인 후 이용 가능합니다."); window.location.href = "/login"</script>')
+    }
+}
+
+passport.use(new LocalStrategy({
+    usernameField: 'id', //form의 name이 id인 input
+    passwordField: 'pwd', //form의 name이 pw인 input
+    session: true, //세션정보 저장여부
+    passReqToCallback: false, //아이디 / 비밀번호 말고도 다른정보 검증시 true, 이후 콜백함수 맨 앞에 req추가.
+  }, function (user_id, user_pw, done) {
+    console.log(user_id, user_pw);
+
+    var shasum = crypto.createHash("sha512");
+    shasum.update(user_pw);
+    var output = shasum.digest("hex");
+    //console.log("hash value: ", output);
+    db.collection('member').findOne({ Id: user_id, Password : output }, function (error, rst) {
+      if (error) return done(error);
+
+      //비밀번호 보안문제 해결해보기 -> 회원가입시 비번을 암호화하여 저장, 로그인시 비밀번호를 암호화하여 일치여부 판단
+      //done(param1, param2, param3) - param1 : 서버에러, param2 : id,pw가 다 맞을때 결과를 반환함, param3 : error메세지
+      console.log(rst.Password, output);
+      if (!rst) return done(null, false, { message: '존재하지않는 아이디요' });
+      if (output == rst.Password) {
+        return done(null, rst);
+      } else {
+        return done(null, false, { message: '비번틀렸어요' });
+      }
+    })
+  }));
+
+  passport.serializeUser(function(user, done){
+    done(null, user.Id); // id를 이용하여 세션을 저장시키는 코드(로그인 성공시 실행)
+  });
+
+  passport.deserializeUser(function(user_id, done){
+    //DB에서 위에 있던 user.id로 유저를 찾은 뒤에 유저 정보를 null옆에 넣음
+    db.collection('member').findOne({Id : user_id}, function(error, rst){
+        done(null, rst); //마이페이지 접속시 사용
+    })
+    
+  });
+
+app.get('/logout', function(req, res){
+    req.logout(function(){
+        res.send('<script>alert("로그아웃 되었습니다."); window.location.href = "/"</script>')
+    });    
+});
+
 //1-1 GET요청시 HTML파일 보내기 -> 응답인자.sendFile(__dirname + '파일명.html')
 app.get('/', function(req, res){
-    //res.sendFile(__dirname + '/index.html');
-    res.render('index.ejs')
+    res.render('index.ejs');
 });
 
 app.get('/write', function(req, res){
@@ -109,15 +231,16 @@ app.post('/newpost', function(req, res){
 
 //2-1. 저장한 페이지 보여주기
 // /list로 GET요청으로 접속하면 실제 DB에 저장된 데이터들로 예쁘게 꾸며진 HTML을 보여줌
-app.get('/list', function(req, res){
+app.get('/list', loginCheck, function(req, res){
     //DB에 저장된 post라는 collection안의 데이터 다루기 -> db.collection('post')
 
     // 1)모든 데이터 꺼내기 -> res.render('파일명', { 데이터이름 : 데이터내용 })
     db.collection('post').find().toArray(function(error, rst){
-        console.log(rst);
-        res.render('list.ejs', { posts : rst });
+        //console.log(rst);
+        res.render('list.ejs', { posts : rst, user : req.user._id });
     });
 });
+
 
 //3. DELETE요청 처리방법 - 로그인시 삭제가능하므로 로그인 기능 밑으로 이동
 //3.1) method-override 라이브러리 이용
@@ -183,78 +306,6 @@ app.put('/edit', function(req, res){
 });
 
 
-//6. 로그인 기능
-const passport = require('passport');
-const LocalStrategy = require('passport-local').Strategy;
-const session = require('express-session');
-
-app.use(session({secret : 'dksktkd1', resave : true, saveUninitialized : false}));
-app.use(passport.initialize());
-app.use(passport.session());
-//app.use(미들웨어) - 요청 - 응답중간에 실행되는 코드
-
-app.get('/login', function(req, res){
-    res.render('login.ejs');
-});
-
-app.post('/login', passport.authenticate('local', {
-    failureRedirect : '/fail'
-}), function(req, res){ //id, pw검사 -> passport.authenticate()
-    res.redirect('/');
-});
-
-app.get('/mypage', loginCheck, function(req, res){
-    console.log(req.user); //사용자의 정보
-    res.render('mypage.ejs', {data : req.user});
-});
-
-function loginCheck(req, res, next){
-    if(req.user){ //req.user가 있으면 통과
-        next();
-        //console.log(req.user);
-    }else{
-        res.send('로그인 해주세요.')
-    }
-}
-
-passport.use(new LocalStrategy({
-    usernameField: 'id', //form의 name이 id인 input
-    passwordField: 'pwd', //form의 name이 pw인 input
-    session: true, //세션정보 저장여부
-    passReqToCallback: false, //아이디 / 비밀번호 말고도 다른정보 검증시 true, 이후 콜백함수 맨 앞에 req추가.
-  }, function (user_id, user_pw, done) {
-    console.log(user_id, user_pw);
-
-    var shasum = crypto.createHash("sha512");
-    shasum.update(user_pw);
-    var output = shasum.digest("hex");
-    //console.log("hash value: ", output);
-    db.collection('member').findOne({ Id: user_id, Password : output }, function (error, rst) {
-      if (error) return done(error);
-
-      //비밀번호 보안문제 해결해보기 -> 회원가입시 비번을 암호화하여 저장, 로그인시 비밀번호를 암호화하여 일치여부 판단
-      //done(param1, param2, param3) - param1 : 서버에러, param2 : id,pw가 다 맞을때 결과를 반환함, param3 : error메세지
-      console.log(rst.Password, output);
-      if (!rst) return done(null, false, { message: '존재하지않는 아이디요' });
-      if (output == rst.Password) {
-        return done(null, rst);
-      } else {
-        return done(null, false, { message: '비번틀렸어요' });
-      }
-    })
-  }));
-
-  passport.serializeUser(function(user, done){
-    done(null, user.Id); // id를 이용하여 세션을 저장시키는 코드(로그인 성공시 실행)
-  });
-
-  passport.deserializeUser(function(user_id, done){
-    //DB에서 위에 있던 user.id로 유저를 찾은 뒤에 유저 정보를 null옆에 넣음
-    db.collection('member').findOne({Id : user_id}, function(error, rst){
-        done(null, rst); //마이페이지 접속시 사용
-    })
-    
-  });
 
   //글 등록방법 옮겨옴
   app.post('/newpost', function(req, res){       
@@ -464,16 +515,26 @@ app.get('/image/:imageName', function(req, res){
 //11.채팅기능 만들기
 //11-1 댓글기능 만들기
 //첫번째 - 댓글 메세지에 부모게시물의 정보까지 입력해놓는것
+
+
 app.post('/chatroom', loginCheck, function(req, res){
 
-    var chatInfo = {
-        title : '채팅방123',
-        member : [ObjectId(req.body.targetUser), req.user._id],
-        date : new Date()
-    }
-    
-    db.collection('chatroom').insertOne(chatInfo).then(function(rst){
-        res.send('생성 완료');
+    //로그인한 유저정보와 대상 유저정보가 있는 채팅방이 있으면 중복 채팅방. 
+    db.collection('chatroom').find({ member : req.user._id }).toArray(function(error, rst){
+        var userCheck = JSON.stringify(rst);
+        //console.log(userCheck.indexOf(req.body.targetUser));        
+        if(userCheck.indexOf(req.body.targetUser) > -1){
+           return res.send('<script>alert("이미 존재하는 채팅방입니다.");</script>');
+        }else{
+            var chatInfo = {
+                title : '채팅방123',
+                member : [ObjectId(req.body.targetUser), req.user._id],
+                date : new Date()
+            }
+            db.collection('chatroom').insertOne(chatInfo).then(function(error, rst){
+                res.send('생성 완료');
+            });
+        }
     });
 });
 
@@ -481,11 +542,69 @@ app.get('/chat', loginCheck, function(req, res){
     //console.log(req.user.Id);    
     db.collection('chatroom').find({ member : req.user._id }).toArray(function(error, rst){
         //res.send(rst);
-        res.render('chat.ejs', { data : rst });
+        res.render('chat.ejs', { data : rst, user : req.user._id }); //변수를 여러개 보내는것도 가능함
+    });    
+});
+
+//채팅 입력
+app.post('/message', loginCheck, function(req, res){
+    var message = {
+        parent : req.body.parentId,
+        userid : req.user._id,
+        content : req.body.chatCont,
+        date : new Date()
+    }
+    console.log(message);
+    db.collection('message').insertOne(message, function(error, rst){
+        res.send(rst);
+    })
+
+});
+
+//채팅방 실시간 업데이트 실시간 소통채널 열기
+
+//11-2.
+/*app.get('/message/', 로그인했니, function(요청, 응답){
+
+    응답.writeHead(200, {
+      "Connection": "keep-alive",
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
     });
+  
+    응답.write('event: test\n');
+    응답.write('data: 안녕하세요\n\n');
+  
+  });*/
+
+app.get('/message/:id', loginCheck, function(req, res){
+    res.writeHead(200, { //header를 수정하여 실시간 채널 오픈
+        "Connection": "keep-alive",
+        "Content-Type": "text/event-stream, utf-8",
+        "Cache-Control": "no-cache",
+    });
+
+    db.collection('message').find({ parent : req.params.id }).toArray(function(error, rst){    
+        res.write('event: test\n');
+        res.write('data: '+JSON.stringify(rst)+'\n\n'); //서버에서 실시간전송시 문자자료만 전송가능
+    });
+
+    //DB가 업데이트 되면 유저에게 쏴줘야되는데 수동적이라 안함 - MongoDB Change Stream 사용시 가능
+    const pipeline = [
+        { $match: { 'fullDocument.parent' : req.params.id } }
+    ];
+    const collection = db.collection('message');
+    const changeStream = collection.watch(pipeline);
+    changeStream.on('change', (rst)=>{
+        res.write('event: test\n');
+        //res.write('data: '+JSON.stringify([rst.fullDocument])+'\n\n'); 
+        res.write(`data: ${JSON.stringify([rst.fullDocument])}\n\n`);
+    });
+
     
 });
 
+//11-3. WebSoket - 양방향 소통 가능 - socket.io라이브러리 사용.
 
 
 

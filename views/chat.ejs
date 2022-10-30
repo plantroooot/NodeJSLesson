@@ -17,11 +17,12 @@
 
         <div class="row">
           <div class="col-3">
-            <ul class="list-group chat-list">
+            <ul id="chatList" class="list-group chat-list" data-user="<%=user%>">
               <%for(var i = 0; i < data.length; i++){%>
-              <li class="list-group-item" data-id="">
+              <li class="list-group-item list-room-info">
                 <h6><%=data[i].title%></h6>
                 <h6 class="text-small"><%=data[i].member[0]%></h6>
+                <button class="btn btn-secondary sel-chat" data-mine="<%=data[i].member[1]%>" data-id="<%=data[i]._id%>">선택</button>
               </li>
               <%}%>
              </ul>
@@ -29,10 +30,7 @@
       
            <div class="col-9 p-0">
              <div class="chat-room">
-                <ul class="list-group chat-content">
-                  <li><span class="chat-box">채팅방1 내용</span></li>
-                  <li><span class="chat-box">채팅방1 내용</span></li>
-                  <li><span class="chat-box mine">채팅방1 내용</span></li>
+                <ul class="list-group chat-content">                
                 </ul>
               <div class="input-group">
                 <input class="form-control" id="chat-input">
@@ -46,6 +44,80 @@
       
       <!-- AJAX - Jquery이용 -->
       <script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js"></script>
+
+      <script>
+        var parent_id;
+        var my_id;
+        var eventSource;
+
+        $('.sel-chat').click(function(e){
+          $(this).parents('li').siblings().css('background-color', '#fff');
+          $(this).parents('li').css('background-color', '#eee');
+
+          parent_id = this.dataset.id;
+          user_id = $('#chatList').attr('data-user');
+          $('.chat-content').html('');
+
+          if(eventSource != undefined){
+            eventSource.close();
+          }
+          
+          eventSource = new EventSource('/message/' + parent_id); //실시간 채널 입장 완료
+          eventSource.addEventListener('test', function (e){
+            var chatData = JSON.parse(e.data);
+            /*for(var i = 0; i < chatData.length; i++){
+              chat_ += '<li><span class="chat-box mine">' + JSON.parse(e.data)[i].content + '</span></li>';
+            }*/
+            chatData.forEach(function(i){//자동으로 갯수만큼 뿌려줌 i-chatData에 들어있던 하나하나의 데이터
+              //$('.chat-content').append('<li><span class="chat-box">' + i.content + '</span></li>');
+              if(user_id == i.userid){                
+                $('.chat-content').append('<li><span class="chat-box mine">' + i.content + '</span></li>');
+              }else{
+                $('.chat-content').append('<li><span class="chat-box">' + i.content + '</span></li>');
+              }
+            });
+
+            $('.chat-content').scrollTop( $('.chat-content')[0].scrollHeight );
+            
+            console.log(user_id);
+
+          });
+
+          //console.log(my_id)
+
+        });       
+      
+        $('#send').on('click', function(e){
+          var chatWord = $('#chat-input').val();
+          $('.chat-content').scrollTop( $('.chat-content')[0].scrollHeight );
+
+          if(chatWord == ''){
+            alert('채팅내용을 입력해주세요');
+          }else{
+          
+            $.ajax({
+              url : '/message',
+              method : 'POST',
+              data : {chatCont : chatWord, parentId : parent_id }
+            }).done(function(data){          
+              //$('.chat-room').append(data);
+              console.log(data);
+            }).fail(function(error){
+              console.log(error)
+            });
+
+            $('#chat-input').val('');
+          }
+
+          /*var r = '<li><span class="chat-box mine">' + chatWord + '</span></li>'
+
+          console.log(r);
+          $('.chat-content').append(r);
+          */
+
+        });
+
+      </script>
       
 
 
